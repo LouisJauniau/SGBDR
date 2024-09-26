@@ -6,20 +6,31 @@ import java.io.IOException;
 
 public class DBConfig {
     private String dbpath;
+    private int pagesize;
+    private int dm_maxfilesize;
 
     public DBConfig(String dbpath) {
         this.dbpath = dbpath;
+        this.pagesize = pagesize;
+        this.dm_maxfilesize = dm_maxfilesize;
     }
 
     public static DBConfig loadDBConfig(String fichierConfig) throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader(fichierConfig));
         String line;
         String dbpath = null;
+        int pagesize = 0;
+        int dm_maxfilesize = 0;
 
         while ((line = reader.readLine()) != null) {
             if (line.startsWith("dbpath")) {
                 dbpath = line.split("=")[1].trim();
             }
+        	} else if (line.startsWith("pagesize")) {
+        		pagesize = Integer.parseInt(line.split("=")[1].trim());
+        	} else if (line.startsWith("dm_maxfilesize")) {
+        		dm_maxfilesize = Integer.parseInt(line.split("=")[1].trim());
+        	}
         }
         reader.close();
 
