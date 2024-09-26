@@ -1,5 +1,3 @@
-package up.mi.jgm.td1;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -9,7 +7,7 @@ public class DBConfig {
     private int pagesize;
     private int dm_maxfilesize;
 
-    public DBConfig(String dbpath) {
+    public DBConfig(String dbpath, int pagesize, int dm_maxfilesize) {
         this.dbpath = dbpath;
         this.pagesize = pagesize;
         this.dm_maxfilesize = dm_maxfilesize;
@@ -25,7 +23,6 @@ public class DBConfig {
         while ((line = reader.readLine()) != null) {
             if (line.startsWith("dbpath")) {
                 dbpath = line.split("=")[1].trim();
-            }
         	} else if (line.startsWith("pagesize")) {
         		pagesize = Integer.parseInt(line.split("=")[1].trim());
         	} else if (line.startsWith("dm_maxfilesize")) {
@@ -34,15 +31,14 @@ public class DBConfig {
         }
         reader.close();
 
-        return new DBConfig(dbpath);
+        return new DBConfig(dbpath, pagesize, dm_maxfilesize);
     }
 
     public String getDbpath() {
         return dbpath;
     }
-}
     
-    public static void main(String[] args) {
+    /*public static void main(String[] args) {
         testCreationEnMemoire();
 
         testCreationViaFichierTexte();
@@ -69,7 +65,7 @@ public class DBConfig {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }*/
+    }
 
     public static void testCasErreur() {
         try {
@@ -78,5 +74,5 @@ public class DBConfig {
         } catch (IOException e) {
             System.out.println("Test 3 réussi : Cas d'erreur géré correctement");
         }
-    }
+    }*/
 }
