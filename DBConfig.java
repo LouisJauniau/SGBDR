@@ -1,19 +1,71 @@
+package up.mi.jgm.td1;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
 
-package up.mi.jgm.dbconfig;
+public class DBConfig {
+    private String dbpath;
 
+    public DBConfig(String dbpath) {
+        this.dbpath = dbpath;
+    }
 
-public class DBConfig{
-	private String dbpath;
-	
-	public DBConfig(String dbpath) {
-		this.dbpath = dbpath;
-	}
-	
-	public static DBConfig LoadDBConfig(String fichier_config) {
-		
-		BufferReader br = new BufferReader(new FileReader(fichier_config));
-		return
-	}
+    public static DBConfig loadDBConfig(String fichierConfig) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(fichierConfig));
+        String line;
+        String dbpath = null;
+
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith("dbpath")) {
+                dbpath = line.split("=")[1].trim();
+            }
+        }
+        reader.close();
+
+        return new DBConfig(dbpath);
+    }
+
+    public String getDbpath() {
+        return dbpath;
+    }
+}
+    
+    public static void main(String[] args) {
+        testCreationEnMemoire();
+
+        testCreationViaFichierTexte();
+
+        testCasErreur();
+    }
+
+    public static void testCreationEnMemoire() {
+        DBConfig config = new DBConfig("../DB");
+        assert "../DB".equals(config.getDbpath()) : "Test échoué : dbpath incorrect";
+        System.out.println("Test 1 réussi : Création d'une instance en mémoire");
+    }
+
+   /* public static void testCreationViaFichierTexte() {
+        try {
+            String fichierConfig = "config.txt";
+            java.nio.file.Files.write(java.nio.file.Paths.get(fichierConfig), "dbpath = '../DB'".getBytes());
+
+            DBConfig config = DBConfig.loadDBConfig(fichierConfig);
+            assert "../DB".equals(config.getDbpath()) : "Test échoué : dbpath incorrect";
+            System.out.println("Test 2 réussi : Création d'une instance via un fichier texte");
+
+            java.nio.file.Files.delete(java.nio.file.Paths.get(fichierConfig));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }*/
+
+    public static void testCasErreur() {
+        try {
+            DBConfig config = DBConfig.loadDBConfig("fichier_inexistant.txt");
+            System.out.println("Test échoué : Exception attendue mais non levée");
+        } catch (IOException e) {
+            System.out.println("Test 3 réussi : Cas d'erreur géré correctement");
+        }
+    }
 }
