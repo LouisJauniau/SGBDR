@@ -1,5 +1,8 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
+package up.mi.jgm.td1;
+
+import org.json.JSONObject;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.io.IOException;
 
 public class DBConfig {
@@ -7,72 +10,54 @@ public class DBConfig {
     private int pagesize;
     private int dm_maxfilesize;
 
+    // Constructeur qui prend en argument les paramètres dbpath, pagesize et dm_maxfilesize
     public DBConfig(String dbpath, int pagesize, int dm_maxfilesize) {
         this.dbpath = dbpath;
         this.pagesize = pagesize;
         this.dm_maxfilesize = dm_maxfilesize;
     }
 
-    public static DBConfig loadDBConfig(String fichierConfig) throws IOException {
-        BufferedReader reader = new BufferedReader(new FileReader(fichierConfig));
-        String line;
-        String dbpath = null;
-        int pagesize = 0;
-        int dm_maxfilesize = 0;
-
-        while ((line = reader.readLine()) != null) {
-            if (line.startsWith("dbpath")) {
-                dbpath = line.split("=")[1].trim();
-        	} else if (line.startsWith("pagesize")) {
-        		pagesize = Integer.parseInt(line.split("=")[1].trim());
-        	} else if (line.startsWith("dm_maxfilesize")) {
-        		dm_maxfilesize = Integer.parseInt(line.split("=")[1].trim());
-        	}
+    // Méthode statique pour charger la configuration à partir d'un fichier texte
+    public static DBConfig LoadDBConfig(String fichier_config) {
+        try {
+            // Lire le contenu du fichier
+            String content = new String(Files.readAllBytes(Paths.get(fichier_config)));
+            // Convertir le contenu en objet JSON
+            JSONObject json = new JSONObject(content);
+            // Extraire les paramètres du JSON
+            String dbpath = json.getString("dbpath");
+            int pagesize = json.getInt("pagesize");
+            int dm_maxfilesize = json.getInt("dm_maxfilesize");
+            // Créer et retourner une instance de DBConfig
+            return new DBConfig(dbpath, pagesize, dm_maxfilesize);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
         }
-        reader.close();
-
-        return new DBConfig(dbpath, pagesize, dm_maxfilesize);
     }
 
+    // Getters et setters pour dbpath, pagesize et dm_maxfilesize
     public String getDbpath() {
         return dbpath;
     }
-    
-    /*public static void main(String[] args) {
-        testCreationEnMemoire();
 
-        testCreationViaFichierTexte();
-
-        testCasErreur();
+    public void setDbpath(String dbpath) {
+        this.dbpath = dbpath;
     }
 
-    public static void testCreationEnMemoire() {
-        DBConfig config = new DBConfig("../DB");
-        assert "../DB".equals(config.getDbpath()) : "Test échoué : dbpath incorrect";
-        System.out.println("Test 1 réussi : Création d'une instance en mémoire");
+    public int getPagesize() {
+        return pagesize;
     }
 
-   /* public static void testCreationViaFichierTexte() {
-        try {
-            String fichierConfig = "config.txt";
-            java.nio.file.Files.write(java.nio.file.Paths.get(fichierConfig), "dbpath = '../DB'".getBytes());
-
-            DBConfig config = DBConfig.loadDBConfig(fichierConfig);
-            assert "../DB".equals(config.getDbpath()) : "Test échoué : dbpath incorrect";
-            System.out.println("Test 2 réussi : Création d'une instance via un fichier texte");
-
-            java.nio.file.Files.delete(java.nio.file.Paths.get(fichierConfig));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public void setPagesize(int pagesize) {
+        this.pagesize = pagesize;
     }
 
-    public static void testCasErreur() {
-        try {
-            DBConfig config = DBConfig.loadDBConfig("fichier_inexistant.txt");
-            System.out.println("Test échoué : Exception attendue mais non levée");
-        } catch (IOException e) {
-            System.out.println("Test 3 réussi : Cas d'erreur géré correctement");
-        }
-    }*/
+    public int getDm_maxfilesize() {
+        return dm_maxfilesize;
+    }
+
+    public void setDm_maxfilesize(int dm_maxfilesize) {
+        this.dm_maxfilesize = dm_maxfilesize;
+    }
 }
