@@ -7,7 +7,7 @@ import java.util.*;
 public class Tests {
     public static void main(String[] args) {
         // Test du constructeur
-        DBConfig config = new DBConfig("path/to/db", 4096, 1048576);
+        DBConfig config = new DBConfig("path/to/db", 4096, 1048576, 100, "LRU");
         DiskManager diskManager = new DiskManager(config);
         System.out.println("Constructeur DiskManager : " + config.getDbpath() + ", " + config.getPagesize() + ", " + config.getDm_maxfilesize());
 
