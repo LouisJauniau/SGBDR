@@ -1,4 +1,4 @@
-package sgbd;
+package up.mi.jgm.td3;
 
 import java.io.*;
 import java.nio.file.*;

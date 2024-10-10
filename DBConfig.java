@@ -1,4 +1,4 @@
-package sgbd;
+package up.mi.jgm.td3;
 
 import org.json.JSONObject;
 
