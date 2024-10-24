@@ -10,7 +10,7 @@ public class BufferManager {
     private Map<PageId, byte[]> bufferPool;
     private String currentReplacementPolicy;
 
-    // Constructor
+    // Constructor ahaha
     public BufferManager(DBConfig config, DiskManager diskManager) {
         this.config = config;
         this.diskManager = diskManager;
