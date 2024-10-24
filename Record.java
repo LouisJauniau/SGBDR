@@ -1,50 +1,19 @@
-package sgbd;
+package up.mi.jgm.td3;
 
-import java.util.ArrayList;
+import java.util.List;
 
 public class Record {
-    private ArrayList<Object> values;
+    private List<String> values;
 
-    public Record() {
-        this.values = new ArrayList<>();
-    }
-
-    public Record(ArrayList<Object> values) {
+    public Record(List<String> values) {
         this.values = values;
     }
 
-    public void addValue(Object value) {
-        values.add(value);
+    public List<String> getValues() {
+        return values;
     }
 
-    public Object getValue(int index) {
-        if (index >= 0 && index < values.size()) {
-            return values.get(index);
-        } else {
-            throw new IndexOutOfBoundsException("Index is out of bounds");
-        }
-    }
-
-    public int getSize() {
-        return values.size();
-    }
-
-    public ArrayList<Object> getValues() {
-        return new ArrayList<>(values);
-    }
-
-    public void setValue(int index, Object value) {
-        if (index >= 0 && index < values.size()) {
-            values.set(index, value);
-        } else {
-            throw new IndexOutOfBoundsException("Index is out of bounds");
-        }
-    }
-
-    @Override
-    public String toString() {
-        return "Record{" +
-                "values=" + values +
-                '}';
+    public void setValues(List<String> values) {
+        this.values = values;
     }
 }
