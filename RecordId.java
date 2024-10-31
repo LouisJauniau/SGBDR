@@ -1,27 +1,42 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
 public class RecordId {
-    private int pageId;
+    private PageId pageId;
     private int slotIdx;
 
-    public RecordId(int pageId, int slotIdx) {
+    // Constructeur
+    public RecordId(PageId pageId, int slotIdx) {
         this.pageId = pageId;
         this.slotIdx = slotIdx;
     }
 
-    public int getPageId() {
+    // Getters
+    public PageId getPageId() {
         return pageId;
-    }
-
-    public void setPageId(int pageId) {
-        this.pageId = pageId;
     }
 
     public int getSlotIdx() {
         return slotIdx;
     }
 
-    public void setSlotIdx(int slotIdx) {
-        this.slotIdx = slotIdx;
+    // Méthode equals pour comparer deux RecordId
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        RecordId recordId = (RecordId) obj;
+        return slotIdx == recordId.slotIdx && pageId.equals(recordId.pageId);
+    }
+
+    // Méthode hashCode
+    @Override
+    public int hashCode() {
+        return 31 * pageId.hashCode() + slotIdx;
+    }
+
+    // Méthode toString pour affichage
+    @Override
+    public String toString() {
+        return "RecordId{" + "pageId=" + pageId + ", slotIdx=" + slotIdx + '}';
     }
 }

@@ -1,38 +1,46 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
-public class PageId {
-    private int FileIdx;
-    private int PageIdx;
+import java.io.Serializable;
 
-    // Constructeur qui prend en argument l'identifiant du fichier et l'indice de la page
+public class PageId implements Serializable {
+    private static final long serialVersionUID = 1L; // Version de sérialisation
+
+    private int fileIdx;
+    private int pageIdx;
+
+    // Constructeur
     public PageId(int fileIdx, int pageIdx) {
-        this.FileIdx = fileIdx;
-        this.PageIdx = pageIdx;
+        this.fileIdx = fileIdx;
+        this.pageIdx = pageIdx;
     }
 
-    // Getters et setters pour FileIdx et PageIdx
+    // Getters
     public int getFileIdx() {
-        return FileIdx;
-    }
-
-    public void setFileIdx(int fileIdx) {
-        this.FileIdx = fileIdx;
+        return fileIdx;
     }
 
     public int getPageIdx() {
-        return PageIdx;
+        return pageIdx;
     }
 
-    public void setPageIdx(int pageIdx) {
-        this.PageIdx = pageIdx;
-    }
-
-    // Méthode pour afficher le PageId sous forme de chaîne de caractères
+    // Méthode toString pour faciliter l'affichage
     @Override
     public String toString() {
-        return "PageId{" +
-                "FileIdx=" + FileIdx +
-                ", PageIdx=" + PageIdx +
-                '}';
+        return "(" + fileIdx + ", " + pageIdx + ")";
+    }
+
+    // Méthode equals pour comparer deux PageId
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        PageId pageId = (PageId) obj;
+        return fileIdx == pageId.fileIdx && pageIdx == pageId.pageIdx;
+    }
+
+    // Méthode hashCode pour utiliser PageId comme clé dans une collection
+    @Override
+    public int hashCode() {
+        return 31 * fileIdx + pageIdx;
     }
 }

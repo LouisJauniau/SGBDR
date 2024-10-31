@@ -1,0 +1,4 @@
+{
+    "wrongkey": "../DB",
+    "maxConnections": 10
+}

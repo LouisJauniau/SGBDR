@@ -1,105 +1,456 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Relation {
+    // Variables existantes
     private String name;
     private int columnCount;
     private List<ColInfo> columns;
 
-    public Relation(String name, int columnCount, List<ColInfo> columns) {
+    // Nouvelles variables membres
+    private PageId headerPageId;
+    private DiskManager diskManager;
+    private BufferManager bufferManager;
+
+    // Constructeur modifié
+    public Relation(String name, List<ColInfo> columns, DiskManager diskManager, BufferManager bufferManager) throws IOException {
         this.name = name;
-        this.columnCount = columnCount;
         this.columns = columns;
+        this.columnCount = columns.size();
+        this.diskManager = diskManager;
+        this.bufferManager = bufferManager;
+
+        // Initialisation de la Header Page
+        initializeHeaderPage();
     }
 
-    public int writeRecordToBuffer(Record record, ByteBuffer buffer, int pos) {
+    // Méthode pour initialiser la Header Page
+    private void initializeHeaderPage() throws IOException {
+        // Allouer une page pour la Header Page
+        this.headerPageId = diskManager.AllocPage();
+
+        // Initialiser la Header Page avec N = 0 (aucune page de données)
+        ByteBuffer buffer = ByteBuffer.allocate(diskManager.getConfig().getPageSize());
+        buffer.putInt(0); // N = 0
+
+        // Écrire la Header Page sur disque
+        diskManager.WritePage(headerPageId, buffer.array());
+    }
+
+    // Getters pour les nouvelles variables
+    public PageId getHeaderPageId() {
+        return headerPageId;
+    }
+
+    // Méthode pour ajouter une page de données
+    public void addDataPage() throws IOException {
+        // Allouer une nouvelle page via le DiskManager
+        PageId dataPageId = diskManager.AllocPage();
+
+        // Initialiser la page de données
+        ByteBuffer dataBuffer = ByteBuffer.allocate(diskManager.getConfig().getPageSize());
+        // Écrire le PageId de la page de données au début
+        dataBuffer.putInt(dataPageId.getFileIdx());
+        dataBuffer.putInt(dataPageId.getPageIdx());
+
+        // Position du curseur après le PageId
+        int freeSpacePosition = dataBuffer.position();
+
+        // Initialiser le Slot Directory à la fin de la page
+        int pageSize = diskManager.getConfig().getPageSize();
+        dataBuffer.position(pageSize - 8); // 8 octets pour freeSpaceOffset et M
+        dataBuffer.putInt(freeSpacePosition); // freeSpaceOffset
+        dataBuffer.putInt(0); // M = 0
+
+        // Écrire la page de données sur disque
+        diskManager.WritePage(dataPageId, dataBuffer.array());
+
+        // Mettre à jour la Header Page
+        updateHeaderPage(dataPageId, pageSize - freeSpacePosition);
+    }
+
+    private void updateHeaderPage(PageId dataPageId, int freeSpace) throws IOException {
+        // Lire la Header Page depuis le disque
+        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
+        diskManager.ReadPage(headerPageId, headerData);
+        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+
+        // Lire N
+        int N = headerBuffer.getInt();
+
+        // Se positionner pour ajouter la nouvelle entrée
+        headerBuffer.position(4 + N * (8 + 4)); // Chaque entrée : PageId (8 octets) + freeSpace (4 octets)
+
+        // Ajouter le nouveau PageId
+        headerBuffer.putInt(dataPageId.getFileIdx());
+        headerBuffer.putInt(dataPageId.getPageIdx());
+
+        // Ajouter le freeSpace
+        headerBuffer.putInt(freeSpace);
+
+        // Incrémenter N
+        headerBuffer.putInt(0, N + 1);
+
+        // Écrire la Header Page sur disque
+        diskManager.WritePage(headerPageId, headerBuffer.array());
+    }
+
+    // Méthode pour trouver une page de données avec assez d'espace
+    public PageId getFreeDataPageId(int sizeRecord) throws IOException {
+        // Lire la Header Page depuis le disque
+        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
+        diskManager.ReadPage(headerPageId, headerData);
+        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+
+        // Lire N
+        int N = headerBuffer.getInt();
+
+        // Parcourir les N entrées
+        for (int i = 0; i < N; i++) {
+            int fileIdx = headerBuffer.getInt();
+            int pageIdx = headerBuffer.getInt();
+            int freeSpace = headerBuffer.getInt();
+
+            if (freeSpace >= sizeRecord + 8) { // 8 octets pour l'entrée dans le Slot Directory
+                return new PageId(fileIdx, pageIdx);
+            }
+        }
+        return null; // Aucune page avec assez d'espace trouvée
+    }
+
+    // Méthode pour écrire un record dans une page de données
+    public RecordId writeRecordToDataPage(Record record, PageId pageId) throws IOException {
+        // Lire la page de données depuis le disque
+        byte[] pageData = new byte[diskManager.getConfig().getPageSize()];
+        bufferManager.GetPage(pageId);
+        diskManager.ReadPage(pageId, pageData);
+        ByteBuffer pageBuffer = ByteBuffer.wrap(pageData);
+
+        // Lire le PageId au début (déjà connu, peut être ignoré ici)
+        pageBuffer.position(8); // Sauter les 8 premiers octets
+
+        // Récupérer la position de l'espace libre et M depuis le Slot Directory
+        int pageSize = diskManager.getConfig().getPageSize();
+        pageBuffer.position(pageSize - 8);
+        int freeSpaceOffset = pageBuffer.getInt();
+        int M = pageBuffer.getInt();
+
+        // Écrire le record à la position freeSpaceOffset
+        pageBuffer.position(freeSpaceOffset);
+        int bytesWritten = writeRecordToBuffer(record, pageBuffer, freeSpaceOffset);
+
+        // Mettre à jour le Slot Directory
+        // Ajouter une nouvelle entrée
+        int slotPosition = pageSize - 8 - M * 8;
+        pageBuffer.position(slotPosition);
+        pageBuffer.putInt(freeSpaceOffset); // Position du record
+        pageBuffer.putInt(bytesWritten);    // Taille du record
+
+        // Incrémenter M
+        M++;
+        pageBuffer.position(pageSize - 4);
+        pageBuffer.putInt(M);
+
+        // Mettre à jour freeSpaceOffset
+        freeSpaceOffset += bytesWritten;
+        pageBuffer.position(pageSize - 8);
+        pageBuffer.putInt(freeSpaceOffset);
+
+        // Mettre à jour le freeSpace dans la Header Page
+        updateFreeSpaceInHeaderPage(pageId, pageSize - freeSpaceOffset - 8 - M * 8);
+
+        // Écrire la page de données sur disque
+        diskManager.WritePage(pageId, pageBuffer.array());
+
+        // Libérer la page
+        bufferManager.FreePage(pageId, true);
+
+        // Retourner le RecordId
+        return new RecordId(pageId, M - 1); // M-1 car les slots commencent à l'indice 0
+    }
+
+    private void updateFreeSpaceInHeaderPage(PageId pageId, int freeSpace) throws IOException {
+        // Lire la Header Page depuis le disque
+        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
+        diskManager.ReadPage(headerPageId, headerData);
+        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+
+        // Lire N
+        int N = headerBuffer.getInt();
+
+        // Parcourir les N entrées pour trouver la page
+        for (int i = 0; i < N; i++) {
+            int idx = headerBuffer.position();
+            int fileIdx = headerBuffer.getInt();
+            int pageIdx = headerBuffer.getInt();
+            int currentFreeSpace = headerBuffer.getInt();
+
+            if (fileIdx == pageId.getFileIdx() && pageIdx == pageId.getPageIdx()) {
+                // Mettre à jour le freeSpace
+                headerBuffer.position(idx + 8); // Position de freeSpace
+                headerBuffer.putInt(freeSpace);
+                break;
+            }
+        }
+
+        // Écrire la Header Page sur disque
+        diskManager.WritePage(headerPageId, headerBuffer.array());
+    }
+
+    // Méthode pour obtenir les records dans une page de données
+    public List<Record> getRecordsInDataPage(PageId pageId) throws IOException {
+        List<Record> records = new ArrayList<>();
+
+        // Lire la page de données depuis le disque
+        byte[] pageData = new byte[diskManager.getConfig().getPageSize()];
+        bufferManager.GetPage(pageId);
+        diskManager.ReadPage(pageId, pageData);
+        ByteBuffer pageBuffer = ByteBuffer.wrap(pageData);
+
+        // Sauter le PageId
+        pageBuffer.position(8);
+
+        // Récupérer M depuis le Slot Directory
+        int pageSize = diskManager.getConfig().getPageSize();
+        pageBuffer.position(pageSize - 4);
+        int M = pageBuffer.getInt();
+
+        // Parcourir le Slot Directory
+        for (int i = 0; i < M; i++) {
+            int slotPosition = pageSize - 8 - (i + 1) * 8;
+            pageBuffer.position(slotPosition);
+            int recordOffset = pageBuffer.getInt();
+            int recordSize = pageBuffer.getInt();
+
+            if (recordSize > 0) { // Si le record n'est pas supprimé
+                // Lire le record
+                pageBuffer.position(recordOffset);
+                Record record = new Record();
+                readFromBuffer(record, pageBuffer, recordOffset);
+                records.add(record);
+            }
+        }
+
+        // Libérer la page
+        bufferManager.FreePage(pageId, false);
+
+        return records;
+    }
+
+    // Méthode pour obtenir toutes les pages de données
+    public List<PageId> getDataPages() throws IOException {
+        List<PageId> pageIds = new ArrayList<>();
+
+        // Lire la Header Page depuis le disque
+        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
+        diskManager.ReadPage(headerPageId, headerData);
+        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+
+        // Lire N
+        int N = headerBuffer.getInt();
+
+        // Parcourir les N entrées
+        for (int i = 0; i < N; i++) {
+            int fileIdx = headerBuffer.getInt();
+            int pageIdx = headerBuffer.getInt();
+            headerBuffer.getInt(); // Sauter freeSpace
+            pageIds.add(new PageId(fileIdx, pageIdx));
+        }
+
+        return pageIds;
+    }
+
+    // Méthode pour insérer un record
+    public RecordId InsertRecord(Record record) throws IOException {
+        // Calculer la taille du record
+        int recordSize = calculateRecordSize(record);
+
+        // Trouver une page avec assez d'espace
+        PageId dataPageId = getFreeDataPageId(recordSize);
+        if (dataPageId == null) {
+            // Aucune page disponible, en ajouter une nouvelle
+            addDataPage();
+            dataPageId = getFreeDataPageId(recordSize);
+            if (dataPageId == null) {
+                throw new IOException("Impossible d'allouer une nouvelle page de données.");
+            }
+        }
+
+        // Écrire le record dans la page de données
+        RecordId rid = writeRecordToDataPage(record, dataPageId);
+        return rid;
+    }
+
+    private int calculateRecordSize(Record record) {
+        // Calculer la taille du record en utilisant writeRecordToBuffer avec un ByteBuffer temporaire
+        ByteBuffer tempBuffer = ByteBuffer.allocate(1024); // Taille arbitraire
+        int size = writeRecordToBuffer(record, tempBuffer, 0);
+        return size;
+    }
+
+    // Méthode pour obtenir tous les records de la relation
+    public List<Record> GetAllRecords() throws IOException {
+        List<Record> allRecords = new ArrayList<>();
+        List<PageId> dataPages = getDataPages();
+
+        for (PageId pageId : dataPages) {
+            List<Record> recordsInPage = getRecordsInDataPage(pageId);
+            allRecords.addAll(recordsInPage);
+        }
+
+        return allRecords;
+    }
+
+    // Méthode pour écrire un record dans un buffer
+    public int writeRecordToBuffer(Record record, ByteBuffer buff, int pos) {
         int initialPos = pos;
-        if (columns.stream().anyMatch(col -> col.getColumnType().startsWith("VARCHAR"))) {
-            // Utilisation du format à taille variable
-            int[] offsets = new int[record.getValues().size() + 1];
-            for (int i = 0; i < record.getValues().size(); i++) {
-                offsets[i] = pos;
-                String value = record.getValues().get(i);
-                if (columns.get(i).getColumnType().equals("INT")) {
-                    buffer.putInt(pos, Integer.parseInt(value));
-                    pos += Integer.BYTES;
-                } else if (columns.get(i).getColumnType().equals("REAL")) {
-                    buffer.putFloat(pos, Float.parseFloat(value));
-                    pos += Float.BYTES;
-                } else {
-                    for (char c : value.toCharArray()) {
-                        buffer.putChar(pos, c);
-                        pos += Character.BYTES;
-                    }
-                }
-            }
-            offsets[record.getValues().size()] = pos;
-            for (int offset : offsets) {
-                buffer.putInt(initialPos, offset);
-                initialPos += Integer.BYTES;
+        buff.position(pos);
+
+        if (!hasVarchar()) {
+            // Format à taille fixe
+            for (int i = 0; i < columnCount; i++) {
+                ColInfo col = columns.get(i);
+                Value value = record.getValue(i);
+                writeValueToBuffer(value, col, buff);
             }
         } else {
-            // Utilisation du format à taille fixe
-            for (int i = 0; i < record.getValues().size(); i++) {
-                String value = record.getValues().get(i);
-                if (columns.get(i).getColumnType().equals("INT")) {
-                    buffer.putInt(pos, Integer.parseInt(value));
-                    pos += Integer.BYTES;
-                } else if (columns.get(i).getColumnType().equals("REAL")) {
-                    buffer.putFloat(pos, Float.parseFloat(value));
-                    pos += Float.BYTES;
-                } else {
-                    for (char c : value.toCharArray()) {
-                        buffer.putChar(pos, c);
-                        pos += Character.BYTES;
-                    }
-                }
+            // Format à taille variable avec offset directory
+            int[] offsets = new int[columnCount + 1];
+            int offsetPos = buff.position();
+            // Réserver l'espace pour l'offset directory
+            buff.position(buff.position() + (columnCount + 1) * Integer.BYTES);
+
+            int dataStartPos = buff.position();
+
+            for (int i = 0; i < columnCount; i++) {
+                offsets[i] = buff.position() - dataStartPos;
+                ColInfo col = columns.get(i);
+                Value value = record.getValue(i);
+                writeValueToBuffer(value, col, buff);
             }
+
+            offsets[columnCount] = buff.position() - dataStartPos;
+
+            // Écrire l'offset directory
+            int currentPos = buff.position();
+            buff.position(offsetPos);
+            for (int offset : offsets) {
+                buff.putInt(offset);
+            }
+            buff.position(currentPos);
         }
-        return pos - initialPos;
+
+        return buff.position() - initialPos;
     }
 
-    public int readFromBuffer(Record record, ByteBuffer buffer, int pos) {
-        List<String> values = record.getValues();
-        if (columns.stream().anyMatch(col -> col.getColumnType().startsWith("VARCHAR"))) {
-            // Lecture en format à taille variable
-            int[] offsets = new int[values.size() + 1];
-            for (int i = 0; i < values.size() + 1; i++) {
-                offsets[i] = buffer.getInt(pos);
-                pos += Integer.BYTES;
-            }
-            for (int i = 0; i < values.size(); i++) {
-                int start = offsets[i];
-                int end = offsets[i + 1];
-                byte[] byteValue = new byte[end - start];
-                buffer.position(start);
-                buffer.get(byteValue);
-                String value = new String(byteValue);
-                values.set(i, value);
+    // Méthode pour lire un record depuis un buffer
+    public int readFromBuffer(Record record, ByteBuffer buff, int pos) {
+        int initialPos = pos;
+        buff.position(pos);
+
+        if (!hasVarchar()) {
+            // Format à taille fixe
+            for (int i = 0; i < columnCount; i++) {
+                ColInfo col = columns.get(i);
+                Value value = readValueFromBuffer(col, buff);
+                record.addValue(value);
             }
         } else {
-            // Lecture en format à taille fixe
-            for (int i = 0; i < columns.size(); i++) {
-                String type = columns.get(i).getColumnType();
-                if (type.equals("INT")) {
-                    values.set(i, String.valueOf(buffer.getInt(pos)));
-                    pos += Integer.BYTES;
-                } else if (type.equals("REAL")) {
-                    values.set(i, String.valueOf(buffer.getFloat(pos)));
-                    pos += Float.BYTES;
-                } else {
-                    StringBuilder value = new StringBuilder();
-                    for (int j = 0; j < type.length(); j++) {
-                        value.append(buffer.getChar(pos));
-                        pos += Character.BYTES;
-                    }
-                    values.set(i, value.toString());
-                }
+            // Format à taille variable avec offset directory
+            int[] offsets = new int[columnCount + 1];
+            for (int i = 0; i <= columnCount; i++) {
+                offsets[i] = buff.getInt();
+            }
+
+            int dataStartPos = buff.position();
+
+            for (int i = 0; i < columnCount; i++) {
+                int valueStart = dataStartPos + offsets[i];
+                int valueEnd = dataStartPos + offsets[i + 1];
+                int length = valueEnd - valueStart;
+
+                buff.position(valueStart);
+                ColInfo col = columns.get(i);
+                Value value = readValueFromBuffer(col, buff, length);
+                record.addValue(value);
             }
         }
-        record.setValues(values);
-        return pos;
+
+        return buff.position() - initialPos;
+    }
+
+    // Méthode pour écrire une valeur dans le buffer
+    private void writeValueToBuffer(Value value, ColInfo col, ByteBuffer buff) {
+        switch (col.getType()) {
+            case INT:
+                buff.putInt((Integer) value.getData());
+                break;
+            case REAL:
+                buff.putFloat((Float) value.getData());
+                break;
+            case CHAR:
+                String charData = (String) value.getData();
+                charData = padRight(charData, col.getSize());
+                buff.put(charData.getBytes());
+                break;
+            case VARCHAR:
+                String varcharData = (String) value.getData();
+                buff.put(varcharData.getBytes());
+                break;
+        }
+    }
+
+    // Méthode pour lire une valeur depuis le buffer
+    private Value readValueFromBuffer(ColInfo col, ByteBuffer buff) {
+        switch (col.getType()) {
+            case INT:
+                int intValue = buff.getInt();
+                return new Value(Value.Type.INT, intValue);
+            case REAL:
+                float floatValue = buff.getFloat();
+                return new Value(Value.Type.REAL, floatValue);
+            case CHAR:
+                byte[] charBytes = new byte[col.getSize()];
+                buff.get(charBytes);
+                String charData = new String(charBytes).trim();
+                return new Value(Value.Type.CHAR, charData);
+            case VARCHAR:
+                // Devrait être géré dans la méthode avec length
+            default:
+                return null;
+        }
+    }
+
+    // Surcharge de readValueFromBuffer pour VARCHAR avec longueur
+    private Value readValueFromBuffer(ColInfo col, ByteBuffer buff, int length) {
+        switch (col.getType()) {
+            case VARCHAR:
+                byte[] varcharBytes = new byte[length];
+                buff.get(varcharBytes);
+                String varcharData = new String(varcharBytes);
+                return new Value(Value.Type.VARCHAR, varcharData);
+            default:
+                // Appeler la méthode sans longueur pour les autres types
+                return readValueFromBuffer(col, buff);
+        }
+    }
+
+    // Méthode pour ajouter des espaces à droite d'une chaîne
+    private String padRight(String s, int n) {
+        return String.format("%-" + n + "s", s);
+    }
+
+    // Méthode pour vérifier si la relation contient des VARCHAR
+    private boolean hasVarchar() {
+        for (ColInfo col : columns) {
+            if (col.getType() == ColInfo.Type.VARCHAR) {
+                return true;
+            }
+        }
+        return false;
     }
 }

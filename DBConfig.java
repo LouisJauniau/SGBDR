@@ -1,86 +1,80 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
-import org.json.JSONObject;
-
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.io.IOException;
+import org.json.JSONObject;
+import org.json.JSONException;
 
 public class DBConfig {
     private String dbpath;
-    private int pagesize;
-    private int dm_maxfilesize;
-    
-    // Nouvelles variables membres
-    private int bm_buffercount;
-    private String bm_policy;
+    private int maxConnections;
+    private int pageSize;
+    private int maxPagesPerFile;
+    private int bufferCount;
+    private String replacementPolicy;
 
-    // Constructeur mis à jour
-    public DBConfig(String dbpath, int pagesize, int dm_maxfilesize, int bm_buffercount, String bm_policy) {
+    // Constructeur
+    public DBConfig(String dbpath, int maxConnections, int pageSize, int maxPagesPerFile, int bufferCount, String replacementPolicy) {
         this.dbpath = dbpath;
-        this.pagesize = pagesize;
-        this.dm_maxfilesize = dm_maxfilesize;
-        this.bm_buffercount = bm_buffercount;
-        this.bm_policy = bm_policy;
+        this.maxConnections = maxConnections;
+        this.pageSize = pageSize;
+        this.maxPagesPerFile = maxPagesPerFile;
+        this.bufferCount = bufferCount;
+        this.replacementPolicy = replacementPolicy;
     }
 
-    // Méthode statique mise à jour pour charger la configuration à partir d'un fichier texte
-    public static DBConfig LoadDBConfig(String fichier_config) {
-        try {
-            String content = new String(Files.readAllBytes(Paths.get(fichier_config)));
-            JSONObject json = new JSONObject(content);
-            
-            String dbpath = json.getString("dbpath");
-            int pagesize = json.getInt("pagesize");
-            int dm_maxfilesize = json.getInt("dm_maxfilesize");
-            int bm_buffercount = json.getInt("bm_buffercount");
-            String bm_policy = json.getString("bm_policy");
-
-            return new DBConfig(dbpath, pagesize, dm_maxfilesize, bm_buffercount, bm_policy);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
+    // Getters
     public String getDbpath() {
         return dbpath;
     }
 
-    public void setDbpath(String dbpath) {
-        this.dbpath = dbpath;
+    public int getMaxConnections() {
+        return maxConnections;
     }
 
-    public int getPagesize() {
-        return pagesize;
+    public int getPageSize() {
+        return pageSize;
     }
 
-    public void setPagesize(int pagesize) {
-        this.pagesize = pagesize;
+    public int getMaxPagesPerFile() {
+        return maxPagesPerFile;
     }
 
-    public int getDm_maxfilesize() {
-        return dm_maxfilesize;
+    public int getBufferCount() {
+        return bufferCount;
     }
 
-    public void setDm_maxfilesize(int dm_maxfilesize) {
-        this.dm_maxfilesize = dm_maxfilesize;
+    public String getReplacementPolicy() {
+        return replacementPolicy;
     }
 
-    // Nouveaux getters et setters pour bm_buffercount et bm_policy
-    public int getBm_buffercount() {
-        return bm_buffercount;
-    }
+    // Méthode statique pour charger la configuration depuis un fichier JSON
+    public static DBConfig loadDBConfig(String fichierConfig) throws IOException {
+        try {
+            // Lire tout le contenu du fichier
+            String content = new String(Files.readAllBytes(Paths.get(fichierConfig)));
 
-    public void setBm_buffercount(int bm_buffercount) {
-        this.bm_buffercount = bm_buffercount;
-    }
+            // Créer un objet JSON à partir du contenu
+            JSONObject json = new JSONObject(content);
 
-    public String getBm_policy() {
-        return bm_policy;
-    }
+            // Vérifier si 'dbpath' est présent dans le fichier JSON
+            if (!json.has("dbpath")) {
+                throw new IllegalArgumentException("Le fichier de configuration doit contenir 'dbpath'.");
+            }
 
-    public void setBm_policy(String bm_policy) {
-        this.bm_policy = bm_policy;
+            // Extraire les valeurs des paramètres
+            String dbpath = json.getString("dbpath");
+            int maxConnections = json.optInt("maxConnections", 5); // Valeur par défaut de 5 si non spécifié
+            int pageSize = json.optInt("pageSize", 4096); // Taille de page par défaut
+            int maxPagesPerFile = json.optInt("maxPagesPerFile", 1000); // Valeur par défaut
+            int bufferCount = json.optInt("bm_buffercount", 5); // Nombre de buffers par défaut
+            String replacementPolicy = json.optString("bm_policy", "LRU"); // Politique par défaut
+
+            return new DBConfig(dbpath, maxConnections, pageSize, maxPagesPerFile, bufferCount, replacementPolicy);
+
+        } catch (JSONException e) {
+            throw new IllegalArgumentException("Le fichier de configuration est mal formé : " + e.getMessage());
+        }
     }
 }
