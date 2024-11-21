@@ -1,8 +1,6 @@
-package up.mi.jgm.bdda;
+package up.mi.jgm.td3;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 
 public class DBConfigTest {
     public static void main(String[] args) {

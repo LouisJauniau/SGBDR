@@ -1,7 +1,6 @@
-package up.mi.jgm.bdda;
+package up.mi.jgm.td3;
 
 import java.io.IOException;
-import java.util.*;
 
 public class BufferManager {
     private DBConfig config;

@@ -1,4 +1,4 @@
-package up.mi.jgm.bdda;
+package up.mi.jgm.td3;
 
 public class RecordId {
     private PageId pageId;

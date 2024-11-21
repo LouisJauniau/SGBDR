@@ -1,4 +1,4 @@
-package up.mi.jgm.bdda;
+package up.mi.jgm.td3;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -44,6 +44,11 @@ public class Relation {
     // Getters pour les nouvelles variables
     public PageId getHeaderPageId() {
         return headerPageId;
+    }
+
+    public String getName()
+    {
+        return name;
     }
 
     // Méthode pour ajouter une page de données
