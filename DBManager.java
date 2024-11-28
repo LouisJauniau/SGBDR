@@ -1,5 +1,11 @@
 package up.mi.jgm.td3;
 
+//nom du fichier apparait dans le script pas en argument
+//main generique qui gere des fichiers de n'importe quel nom
+//pas forcement bash
+//classe relation lecture ecriture passe pas buffermanager
+
+import java.util.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -104,4 +110,33 @@ public class DBManager {
             System.out.println("Aucune base de données courante n'est définie.");
         }
     }
+
+    public void removeDatabase(String nomBdd) {
+        //supprimer les tables
+        databases.remove(nomBdd);
+    }
+
+    public void removeTablesFromCurrentDatabase() {
+        if (currentDatabase != null && databases.containsKey(currentDatabase)) {
+            // Obtenir toutes les clés de la base de données courante
+            List<String> tables = new ArrayList<>(databases.get(currentDatabase).keySet());
+
+            // Supprimer chaque table individuellement
+            for (String table : tables) {
+                removeTableFromCurrentDatabase(table);
+            }
+        }
+    }
+
+    public void removeDatabases()
+    {
+        List<String> dbs = new ArrayList<>(databases.keySet());
+        for (String db : dbs){
+            currentDatabase = db;
+            removeTablesFromCurrentDatabase();
+            removeDatabase(db);
+        }
+    }
+
+
 }
