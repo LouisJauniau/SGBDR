@@ -1,5 +1,7 @@
 package up.mi.jgm.td3;
 
+// Attention utiliser le BufferManager pas le DiskManager
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
