@@ -1,6 +1,4 @@
-package up.mi.jgm.td3;
-
-// Attention utiliser le BufferManager pas le DiskManager
+package up.mi.jgm.bdda;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -35,12 +33,14 @@ public class Relation {
         // Allouer une page pour la Header Page
         this.headerPageId = diskManager.AllocPage();
 
+        // Obtenir le buffer de la page via le BufferManager
+        ByteBuffer buffer = bufferManager.GetPage(headerPageId);
+
         // Initialiser la Header Page avec N = 0 (aucune page de données)
-        ByteBuffer buffer = ByteBuffer.allocate(diskManager.getConfig().getPageSize());
         buffer.putInt(0); // N = 0
 
-        // Écrire la Header Page sur disque
-        diskManager.WritePage(headerPageId, buffer.array());
+        // Indiquer que la page a été modifiée lors de la libération
+        bufferManager.FreePage(headerPageId, true);
     }
 
     // Getters pour les nouvelles variables
@@ -48,9 +48,12 @@ public class Relation {
         return headerPageId;
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
+    }
+
+    public List<ColInfo> getColumns() {
+        return columns;
     }
 
     // Méthode pour ajouter une page de données
@@ -58,8 +61,10 @@ public class Relation {
         // Allouer une nouvelle page via le DiskManager
         PageId dataPageId = diskManager.AllocPage();
 
+        // Obtenir le buffer de la nouvelle page via le BufferManager
+        ByteBuffer dataBuffer = bufferManager.GetPage(dataPageId);
+
         // Initialiser la page de données
-        ByteBuffer dataBuffer = ByteBuffer.allocate(diskManager.getConfig().getPageSize());
         // Écrire le PageId de la page de données au début
         dataBuffer.putInt(dataPageId.getFileIdx());
         dataBuffer.putInt(dataPageId.getPageIdx());
@@ -73,21 +78,19 @@ public class Relation {
         dataBuffer.putInt(freeSpacePosition); // freeSpaceOffset
         dataBuffer.putInt(0); // M = 0
 
-        // Écrire la page de données sur disque
-        diskManager.WritePage(dataPageId, dataBuffer.array());
+        // Indiquer que la page a été modifiée lors de la libération
+        bufferManager.FreePage(dataPageId, true);
 
         // Mettre à jour la Header Page
         updateHeaderPage(dataPageId, pageSize - freeSpacePosition);
     }
 
     private void updateHeaderPage(PageId dataPageId, int freeSpace) throws IOException {
-        // Lire la Header Page depuis le disque
-        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
-        diskManager.ReadPage(headerPageId, headerData);
-        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+        // Obtenir le buffer de la Header Page via le BufferManager
+        ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
         // Lire N
-        int N = headerBuffer.getInt();
+        int N = headerBuffer.getInt(0);
 
         // Se positionner pour ajouter la nouvelle entrée
         headerBuffer.position(4 + N * (8 + 4)); // Chaque entrée : PageId (8 octets) + freeSpace (4 octets)
@@ -100,42 +103,44 @@ public class Relation {
         headerBuffer.putInt(freeSpace);
 
         // Incrémenter N
-        headerBuffer.putInt(0, N + 1);
+        N++;
+        headerBuffer.putInt(0, N);
 
-        // Écrire la Header Page sur disque
-        diskManager.WritePage(headerPageId, headerBuffer.array());
+        // Indiquer que la page a été modifiée lors de la libération
+        bufferManager.FreePage(headerPageId, true);
     }
 
     // Méthode pour trouver une page de données avec assez d'espace
     public PageId getFreeDataPageId(int sizeRecord) throws IOException {
-        // Lire la Header Page depuis le disque
-        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
-        diskManager.ReadPage(headerPageId, headerData);
-        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+        // Obtenir le buffer de la Header Page via le BufferManager
+        ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
         // Lire N
-        int N = headerBuffer.getInt();
+        int N = headerBuffer.getInt(0);
 
         // Parcourir les N entrées
+        int position = 4;
         for (int i = 0; i < N; i++) {
+            headerBuffer.position(position);
             int fileIdx = headerBuffer.getInt();
             int pageIdx = headerBuffer.getInt();
             int freeSpace = headerBuffer.getInt();
 
             if (freeSpace >= sizeRecord + 8) { // 8 octets pour l'entrée dans le Slot Directory
+                bufferManager.FreePage(headerPageId, false);
                 return new PageId(fileIdx, pageIdx);
             }
+            position += 12; // Passer à l'entrée suivante
         }
+
+        bufferManager.FreePage(headerPageId, false);
         return null; // Aucune page avec assez d'espace trouvée
     }
 
     // Méthode pour écrire un record dans une page de données
     public RecordId writeRecordToDataPage(Record record, PageId pageId) throws IOException {
-        // Lire la page de données depuis le disque
-        byte[] pageData = new byte[diskManager.getConfig().getPageSize()];
-        bufferManager.GetPage(pageId);
-        diskManager.ReadPage(pageId, pageData);
-        ByteBuffer pageBuffer = ByteBuffer.wrap(pageData);
+        // Obtenir le buffer de la page de données via le BufferManager
+        ByteBuffer pageBuffer = bufferManager.GetPage(pageId);
 
         // Lire le PageId au début (déjà connu, peut être ignoré ici)
         pageBuffer.position(8); // Sauter les 8 premiers octets
@@ -167,56 +172,49 @@ public class Relation {
         pageBuffer.position(pageSize - 8);
         pageBuffer.putInt(freeSpaceOffset);
 
+        // Indiquer que la page a été modifiée lors de la libération
+        bufferManager.FreePage(pageId, true);
+
         // Mettre à jour le freeSpace dans la Header Page
         updateFreeSpaceInHeaderPage(pageId, pageSize - freeSpaceOffset - 8 - M * 8);
-
-        // Écrire la page de données sur disque
-        diskManager.WritePage(pageId, pageBuffer.array());
-
-        // Libérer la page
-        bufferManager.FreePage(pageId, true);
 
         // Retourner le RecordId
         return new RecordId(pageId, M - 1); // M-1 car les slots commencent à l'indice 0
     }
 
     private void updateFreeSpaceInHeaderPage(PageId pageId, int freeSpace) throws IOException {
-        // Lire la Header Page depuis le disque
-        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
-        diskManager.ReadPage(headerPageId, headerData);
-        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+        // Obtenir le buffer de la Header Page via le BufferManager
+        ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
         // Lire N
-        int N = headerBuffer.getInt();
+        int N = headerBuffer.getInt(0);
 
         // Parcourir les N entrées pour trouver la page
+        int position = 4;
         for (int i = 0; i < N; i++) {
-            int idx = headerBuffer.position();
+            headerBuffer.position(position);
             int fileIdx = headerBuffer.getInt();
             int pageIdx = headerBuffer.getInt();
-            int currentFreeSpace = headerBuffer.getInt();
+            int idxFreeSpace = headerBuffer.position();
 
             if (fileIdx == pageId.getFileIdx() && pageIdx == pageId.getPageIdx()) {
                 // Mettre à jour le freeSpace
-                headerBuffer.position(idx + 8); // Position de freeSpace
                 headerBuffer.putInt(freeSpace);
                 break;
             }
+            position += 12; // Passer à l'entrée suivante
         }
 
-        // Écrire la Header Page sur disque
-        diskManager.WritePage(headerPageId, headerBuffer.array());
+        // Indiquer que la page a été modifiée lors de la libération
+        bufferManager.FreePage(headerPageId, true);
     }
 
     // Méthode pour obtenir les records dans une page de données
     public List<Record> getRecordsInDataPage(PageId pageId) throws IOException {
         List<Record> records = new ArrayList<>();
 
-        // Lire la page de données depuis le disque
-        byte[] pageData = new byte[diskManager.getConfig().getPageSize()];
-        bufferManager.GetPage(pageId);
-        diskManager.ReadPage(pageId, pageData);
-        ByteBuffer pageBuffer = ByteBuffer.wrap(pageData);
+        // Obtenir le buffer de la page de données via le BufferManager
+        ByteBuffer pageBuffer = bufferManager.GetPage(pageId);
 
         // Sauter le PageId
         pageBuffer.position(8);
@@ -252,21 +250,25 @@ public class Relation {
     public List<PageId> getDataPages() throws IOException {
         List<PageId> pageIds = new ArrayList<>();
 
-        // Lire la Header Page depuis le disque
-        byte[] headerData = new byte[diskManager.getConfig().getPageSize()];
-        diskManager.ReadPage(headerPageId, headerData);
-        ByteBuffer headerBuffer = ByteBuffer.wrap(headerData);
+        // Obtenir le buffer de la Header Page via le BufferManager
+        ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
         // Lire N
-        int N = headerBuffer.getInt();
+        int N = headerBuffer.getInt(0);
 
         // Parcourir les N entrées
+        int position = 4;
         for (int i = 0; i < N; i++) {
+            headerBuffer.position(position);
             int fileIdx = headerBuffer.getInt();
             int pageIdx = headerBuffer.getInt();
             headerBuffer.getInt(); // Sauter freeSpace
             pageIds.add(new PageId(fileIdx, pageIdx));
+            position += 12; // Passer à l'entrée suivante
         }
+
+        // Libérer la page
+        bufferManager.FreePage(headerPageId, false);
 
         return pageIds;
     }
