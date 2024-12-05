@@ -29,7 +29,7 @@ public class DBManager {
     private String currentDatabase;
 
     //Constructeur
-    public DBManager(DBConfig dbConfig) {
+    public DBManager() {
         this.dbConfig = dbConfig;
         this.databases = new HashMap<>();
     }
@@ -117,7 +117,7 @@ public class DBManager {
     }
 
     public void removeTablesFromCurrentDatabase() {
-        if (currentDatabase != null && databases.containsKey(currentDatabase)) {
+        if (currentDatabase != null ) {
             // Obtenir toutes les clés de la base de données courante
             List<String> tables = new ArrayList<>(databases.get(currentDatabase).keySet());
 
@@ -125,6 +125,10 @@ public class DBManager {
             for (String table : tables) {
                 removeTableFromCurrentDatabase(table);
             }
+        }
+        else
+        {
+            System.out.println("Aucune base de données courante n'est définie.");
         }
     }
 
@@ -135,6 +139,30 @@ public class DBManager {
             currentDatabase = db;
             removeTablesFromCurrentDatabase();
             removeDatabase(db);
+        }
+    }
+    
+    public void listDatabases()
+    {
+        List<String> listeDbs = new ArrayList<>(databases.keySet());
+        for (String db : listeDbs){
+            System.out.println(db);
+        }
+    }
+
+    public void listTablesInCurrentDatabase()
+    {
+        if (currentDatabase != null) {
+            List<String> tables = new ArrayList<>(databases.get(currentDatabase).keySet());
+            for ( String t : tables)
+            {
+                System.out.println(t + " / " + t.getClass().getName() + "\n");
+                //affiche t et affiche le nom complet (avec package) de la classe de l'objet t
+            }
+        }
+        else
+        {
+            System.out.println("Aucune base de données courante n'est définie.");
         }
     }
 
