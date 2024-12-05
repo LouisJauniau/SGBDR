@@ -1,6 +1,10 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
-public class RecordId {
+import java.io.Serializable;
+
+public class RecordId implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
     private PageId pageId;
     private int slotIdx;
 

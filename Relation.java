@@ -1,11 +1,13 @@
 package up.mi.jgm.bdda;
 
 import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Relation {
+public class Relation implements Serializable {
+    private static final long serialVersionUID = 1L;
     // Variables existantes
     private String name;
     private int columnCount;
@@ -54,6 +56,14 @@ public class Relation {
 
     public List<ColInfo> getColumns() {
         return columns;
+    }
+    
+    public void setDiskManager(DiskManager diskManager) {
+        this.diskManager = diskManager;
+    }
+
+    public void setBufferManager(BufferManager bufferManager) {
+        this.bufferManager = bufferManager;
     }
 
     // Méthode pour ajouter une page de données

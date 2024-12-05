@@ -1,12 +1,15 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.json.JSONObject;
 import org.json.JSONException;
 
-public class DBConfig {
+public class DBConfig implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
     private String dbpath;
     private int maxConnections;
     private int pageSize;

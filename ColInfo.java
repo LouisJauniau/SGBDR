@@ -1,6 +1,10 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
-public class ColInfo {
+import java.io.Serializable;
+
+public class ColInfo implements Serializable {
+    private static final long serialVersionUID = 1L;
+    	
     private String name;
 
     public enum Type {
