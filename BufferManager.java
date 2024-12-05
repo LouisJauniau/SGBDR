@@ -1,6 +1,8 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.*;
 
 public class BufferManager {
     private DBConfig config;
@@ -9,14 +11,14 @@ public class BufferManager {
     // Représentation d'un buffer (frame)
     private class Frame {
         PageId pageId;
-        byte[] data;
+        ByteBuffer data;
         int pinCount;
         boolean dirty;
         long lastUsedTime; // Pour LRU/MRU
 
         Frame(int pageSize) {
             this.pageId = null;
-            this.data = new byte[pageSize];
+            this.data = ByteBuffer.allocate(pageSize);
             this.pinCount = 0;
             this.dirty = false;
             this.lastUsedTime = 0;
@@ -42,13 +44,14 @@ public class BufferManager {
     }
 
     // Méthode pour obtenir une page
-    public byte[] GetPage(PageId pageId) throws IOException {
+    public ByteBuffer GetPage(PageId pageId) throws IOException {
         // Vérifier si la page est déjà en mémoire
         for (Frame frame : buffers) {
             if (pageId.equals(frame.pageId)) {
                 frame.pinCount++;
                 frame.lastUsedTime = System.currentTimeMillis();
-                return frame.data;
+                // Créer une vue du buffer pour éviter les problèmes de position
+                return frame.data.duplicate();
             }
         }
 
@@ -56,12 +59,16 @@ public class BufferManager {
         for (Frame frame : buffers) {
             if (frame.pinCount == 0 && frame.pageId == null) {
                 // Charger la page depuis le disque
-                diskManager.ReadPage(pageId, frame.data);
+                byte[] pageData = new byte[config.getPageSize()];
+                diskManager.ReadPage(pageId, pageData);
+                frame.data.clear();
+                frame.data.put(pageData);
+                frame.data.flip(); // Préparer le buffer pour la lecture
                 frame.pageId = pageId;
                 frame.pinCount = 1;
                 frame.dirty = false;
                 frame.lastUsedTime = System.currentTimeMillis();
-                return frame.data;
+                return frame.data.duplicate();
             }
         }
 
@@ -73,28 +80,31 @@ public class BufferManager {
 
         // Écrire la page sur disque si elle est sale
         if (victim.dirty) {
-            diskManager.WritePage(victim.pageId, victim.data);
+            diskManager.WritePage(victim.pageId, victim.data.array());
         }
 
         // Charger la nouvelle page
-        diskManager.ReadPage(pageId, victim.data);
+        byte[] pageData = new byte[config.getPageSize()];
+        diskManager.ReadPage(pageId, pageData);
+        victim.data.clear();
+        victim.data.put(pageData);
+        victim.data.flip(); // Préparer le buffer pour la lecture
         victim.pageId = pageId;
         victim.pinCount = 1;
         victim.dirty = false;
         victim.lastUsedTime = System.currentTimeMillis();
 
-        return victim.data;
+        return victim.data.duplicate();
     }
 
     // Méthode pour libérer une page
-    public void FreePage(PageId pageId, boolean isDirty) {
+    public void FreePage(PageId pageId, boolean isDirty) throws IOException {
         for (Frame frame : buffers) {
             if (pageId.equals(frame.pageId)) {
                 frame.pinCount--;
                 if (isDirty) {
                     frame.dirty = true;
                 }
-                // Mise à jour de lastUsedTime pour MRU
                 frame.lastUsedTime = System.currentTimeMillis();
                 return;
             }
@@ -112,13 +122,14 @@ public class BufferManager {
     public void FlushBuffers() throws IOException {
         for (Frame frame : buffers) {
             if (frame.dirty && frame.pageId != null) {
-                diskManager.WritePage(frame.pageId, frame.data);
+                diskManager.WritePage(frame.pageId, frame.data.array());
             }
             // Réinitialiser le buffer
             frame.pageId = null;
             frame.pinCount = 0;
             frame.dirty = false;
             frame.lastUsedTime = 0;
+            frame.data.clear();
         }
     }
 
