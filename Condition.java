@@ -28,6 +28,14 @@ public class Condition {
         this.indexAutreColonne = otherColumnIndex; // Comparaison avec une autre colonne
     }
 
+    public Condition(Integer columnIndex, String operator, Integer otherColumnIndex) {
+        this.indexColonne = columnIndex; // Conversion automatique d'Integer vers int
+        this.operator = operator;
+        this.valeurConstante = null; // Pas de constante
+        this.indexAutreColonne = otherColumnIndex; // Comparaison avec une autre colonne
+    }
+
+
 
     //On aurait pû utiliser wildcards avec Class<?>[] mais défaut d'utilisation.
     //On utilise donc simplement la généricité pour pouvoir representer les differentes valeurs possibles.
