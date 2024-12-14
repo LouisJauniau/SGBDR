@@ -1,4 +1,4 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
 import java.io.IOException;
 import java.io.*;
@@ -57,14 +57,14 @@ public class Relation implements Serializable {
     public List<ColInfo> getColumns() {
         return columns;
     }
-
+    
     public void setDiskManager(DiskManager diskManager) {
         this.diskManager = diskManager;
     }
 
     public void setBufferManager(BufferManager bufferManager) {
         this.bufferManager = bufferManager;
-    }
+    }	
 
     // Méthode pour ajouter une page de données
     public void addDataPage() throws IOException {
@@ -96,6 +96,7 @@ public class Relation implements Serializable {
     }
 
     private void updateHeaderPage(PageId dataPageId, int freeSpace) throws IOException {
+        // Obtenir le buffer de la Header Page via le BufferManager
         ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
         // Lire N
@@ -115,16 +116,19 @@ public class Relation implements Serializable {
         N++;
         headerBuffer.putInt(0, N);
 
+        // Indiquer que la page a été modifiée lors de la libération
         bufferManager.FreePage(headerPageId, true);
     }
 
     // Méthode pour trouver une page de données avec assez d'espace
     public PageId getFreeDataPageId(int sizeRecord) throws IOException {
+        // Obtenir le buffer de la Header Page via le BufferManager
         ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
         // Lire N
         int N = headerBuffer.getInt(0);
 
+        // Parcourir les N entrées
         int position = 4;
         for (int i = 0; i < N; i++) {
             headerBuffer.position(position);
@@ -132,35 +136,38 @@ public class Relation implements Serializable {
             int pageIdx = headerBuffer.getInt();
             int freeSpace = headerBuffer.getInt();
 
-            if (freeSpace >= sizeRecord + 8) {
+            if (freeSpace >= sizeRecord + 8) { // 8 octets pour l'entrée dans le Slot Directory
                 bufferManager.FreePage(headerPageId, false);
                 return new PageId(fileIdx, pageIdx);
             }
-            position += 12;
+            position += 12; // Passer à l'entrée suivante
         }
 
         bufferManager.FreePage(headerPageId, false);
-        return null;
+        return null; // Aucune page avec assez d'espace trouvée
     }
 
     // Méthode pour écrire un record dans une page de données
     public RecordId writeRecordToDataPage(Record record, PageId pageId) throws IOException {
+        // Obtenir le buffer de la page de données via le BufferManager
         ByteBuffer pageBuffer = bufferManager.GetPage(pageId);
 
-        // Lire le PageId au début
+        // Lire le PageId au début (déjà connu, peut être ignoré ici)
         pageBuffer.position(8); // Sauter les 8 premiers octets
 
+        // Récupérer la position de l'espace libre et M depuis le Slot Directory
         int pageSize = diskManager.getConfig().getPageSize();
         pageBuffer.position(pageSize - 8);
         int freeSpaceOffset = pageBuffer.getInt();
         int M = pageBuffer.getInt();
 
-        // Écrire le record
+        // Écrire le record à la position freeSpaceOffset
         pageBuffer.position(freeSpaceOffset);
         int bytesWritten = writeRecordToBuffer(record, pageBuffer, freeSpaceOffset);
 
         // Mettre à jour le Slot Directory
-        int slotPosition = pageSize - 8 - M * 8;
+        // Ajouter une nouvelle entrée
+        int slotPosition = pageSize - 16 - M * 8;
         pageBuffer.position(slotPosition);
         pageBuffer.putInt(freeSpaceOffset); // Position du record
         pageBuffer.putInt(bytesWritten);    // Taille du record
@@ -175,19 +182,24 @@ public class Relation implements Serializable {
         pageBuffer.position(pageSize - 8);
         pageBuffer.putInt(freeSpaceOffset);
 
+        // Indiquer que la page a été modifiée lors de la libération
         bufferManager.FreePage(pageId, true);
 
         // Mettre à jour le freeSpace dans la Header Page
         updateFreeSpaceInHeaderPage(pageId, pageSize - freeSpaceOffset - 8 - M * 8);
 
-        return new RecordId(pageId, M - 1);
+        // Retourner le RecordId
+        return new RecordId(pageId, M - 1); // M-1 car les slots commencent à l'indice 0
     }
 
     private void updateFreeSpaceInHeaderPage(PageId pageId, int freeSpace) throws IOException {
+        // Obtenir le buffer de la Header Page via le BufferManager
         ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
+        // Lire N
         int N = headerBuffer.getInt(0);
 
+        // Parcourir les N entrées pour trouver la page
         int position = 4;
         for (int i = 0; i < N; i++) {
             headerBuffer.position(position);
@@ -196,12 +208,14 @@ public class Relation implements Serializable {
             int idxFreeSpace = headerBuffer.position();
 
             if (fileIdx == pageId.getFileIdx() && pageIdx == pageId.getPageIdx()) {
+                // Mettre à jour le freeSpace
                 headerBuffer.putInt(freeSpace);
                 break;
             }
-            position += 12;
+            position += 12; // Passer à l'entrée suivante
         }
 
+        // Indiquer que la page a été modifiée lors de la libération
         bufferManager.FreePage(headerPageId, true);
     }
 
@@ -209,24 +223,26 @@ public class Relation implements Serializable {
     public List<Record> getRecordsInDataPage(PageId pageId) throws IOException {
         List<Record> records = new ArrayList<>();
 
+        // Obtenir le buffer de la page de données via le BufferManager
         ByteBuffer pageBuffer = bufferManager.GetPage(pageId);
 
         // Sauter le PageId
         pageBuffer.position(8);
 
+        // Récupérer M depuis le Slot Directory
         int pageSize = diskManager.getConfig().getPageSize();
         pageBuffer.position(pageSize - 4);
         int M = pageBuffer.getInt();
 
         // Parcourir le Slot Directory
-        // Correction : utiliser i au lieu de (i+1) pour aligner avec l'écriture des slots
         for (int i = 0; i < M; i++) {
-            int slotPosition = pageSize - 8 - i * 8;
+            int slotPosition = pageSize - 8 - (i + 1) * 8;
             pageBuffer.position(slotPosition);
             int recordOffset = pageBuffer.getInt();
             int recordSize = pageBuffer.getInt();
 
-            if (recordSize > 0) {
+            if (recordSize > 0) { // Si le record n'est pas supprimé
+                // Lire le record
                 pageBuffer.position(recordOffset);
                 Record record = new Record();
                 readFromBuffer(record, pageBuffer, recordOffset);
@@ -234,6 +250,7 @@ public class Relation implements Serializable {
             }
         }
 
+        // Libérer la page
         bufferManager.FreePage(pageId, false);
 
         return records;
@@ -243,10 +260,13 @@ public class Relation implements Serializable {
     public List<PageId> getDataPages() throws IOException {
         List<PageId> pageIds = new ArrayList<>();
 
+        // Obtenir le buffer de la Header Page via le BufferManager
         ByteBuffer headerBuffer = bufferManager.GetPage(headerPageId);
 
+        // Lire N
         int N = headerBuffer.getInt(0);
 
+        // Parcourir les N entrées
         int position = 4;
         for (int i = 0; i < N; i++) {
             headerBuffer.position(position);
@@ -254,9 +274,10 @@ public class Relation implements Serializable {
             int pageIdx = headerBuffer.getInt();
             headerBuffer.getInt(); // Sauter freeSpace
             pageIds.add(new PageId(fileIdx, pageIdx));
-            position += 12;
+            position += 12; // Passer à l'entrée suivante
         }
 
+        // Libérer la page
         bufferManager.FreePage(headerPageId, false);
 
         return pageIds;
@@ -264,10 +285,13 @@ public class Relation implements Serializable {
 
     // Méthode pour insérer un record
     public RecordId InsertRecord(Record record) throws IOException {
+        // Calculer la taille du record
         int recordSize = calculateRecordSize(record);
 
+        // Trouver une page avec assez d'espace
         PageId dataPageId = getFreeDataPageId(recordSize);
         if (dataPageId == null) {
+            // Aucune page disponible, en ajouter une nouvelle
             addDataPage();
             dataPageId = getFreeDataPageId(recordSize);
             if (dataPageId == null) {
@@ -275,11 +299,14 @@ public class Relation implements Serializable {
             }
         }
 
-        return writeRecordToDataPage(record, dataPageId);
+        // Écrire le record dans la page de données
+        RecordId rid = writeRecordToDataPage(record, dataPageId);
+        return rid;
     }
 
     private int calculateRecordSize(Record record) {
-        ByteBuffer tempBuffer = ByteBuffer.allocate(1024);
+        // Calculer la taille du record en utilisant writeRecordToBuffer avec un ByteBuffer temporaire
+        ByteBuffer tempBuffer = ByteBuffer.allocate(1024); // Taille arbitraire
         int size = writeRecordToBuffer(record, tempBuffer, 0);
         return size;
     }
@@ -313,6 +340,7 @@ public class Relation implements Serializable {
             // Format à taille variable avec offset directory
             int[] offsets = new int[columnCount + 1];
             int offsetPos = buff.position();
+            // Réserver l'espace pour l'offset directory
             buff.position(buff.position() + (columnCount + 1) * Integer.BYTES);
 
             int dataStartPos = buff.position();
@@ -326,6 +354,7 @@ public class Relation implements Serializable {
 
             offsets[columnCount] = buff.position() - dataStartPos;
 
+            // Écrire l'offset directory
             int currentPos = buff.position();
             buff.position(offsetPos);
             for (int offset : offsets) {
@@ -343,12 +372,14 @@ public class Relation implements Serializable {
         buff.position(pos);
 
         if (!hasVarchar()) {
+            // Format à taille fixe
             for (int i = 0; i < columnCount; i++) {
                 ColInfo col = columns.get(i);
                 Value value = readValueFromBuffer(col, buff);
                 record.addValue(value);
             }
         } else {
+            // Format à taille variable avec offset directory
             int[] offsets = new int[columnCount + 1];
             for (int i = 0; i <= columnCount; i++) {
                 offsets[i] = buff.getInt();
@@ -371,6 +402,7 @@ public class Relation implements Serializable {
         return buff.position() - initialPos;
     }
 
+    // Méthode pour écrire une valeur dans le buffer
     private void writeValueToBuffer(Value value, ColInfo col, ByteBuffer buff) {
         switch (col.getType()) {
             case INT:
@@ -391,6 +423,7 @@ public class Relation implements Serializable {
         }
     }
 
+    // Méthode pour lire une valeur depuis le buffer
     private Value readValueFromBuffer(ColInfo col, ByteBuffer buff) {
         switch (col.getType()) {
             case INT:
@@ -405,12 +438,13 @@ public class Relation implements Serializable {
                 String charData = new String(charBytes).trim();
                 return new Value(Value.Type.CHAR, charData);
             case VARCHAR:
-                // Géré dans la méthode avec length
+                // Devrait être géré dans la méthode avec length
             default:
                 return null;
         }
     }
 
+    // Surcharge de readValueFromBuffer pour VARCHAR avec longueur
     private Value readValueFromBuffer(ColInfo col, ByteBuffer buff, int length) {
         switch (col.getType()) {
             case VARCHAR:
@@ -419,14 +453,17 @@ public class Relation implements Serializable {
                 String varcharData = new String(varcharBytes);
                 return new Value(Value.Type.VARCHAR, varcharData);
             default:
+                // Appeler la méthode sans longueur pour les autres types
                 return readValueFromBuffer(col, buff);
         }
     }
 
+    // Méthode pour ajouter des espaces à droite d'une chaîne
     private String padRight(String s, int n) {
         return String.format("%-" + n + "s", s);
     }
 
+    // Méthode pour vérifier si la relation contient des VARCHAR
     private boolean hasVarchar() {
         for (ColInfo col : columns) {
             if (col.getType() == ColInfo.Type.VARCHAR) {

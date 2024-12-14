@@ -1,5 +1,4 @@
-package up.mi.jgm.td3;
-
+package up.mi.jgm.bdda;
 
 /*
 gere la conversion appropriée des colonnes car le comportement diffère
@@ -41,12 +40,12 @@ public class Condition {
     //On utilise donc simplement la généricité pour pouvoir representer les differentes valeurs possibles.
     public <T> boolean evaluate(Record record, Class<T>[] columnTypes) {
         // Récupérer la valeur de la colonne
-        T valeurColonne = (T) record.getValue(indexColonne); // Cast explicite vers T
+    	T valeurColonne = (T) record.getValue(indexColonne).getData(); // Cast explicite vers T
         Class<T> typeColonne = columnTypes[indexColonne];
 
         // Comparaison avec une autre colonne
         if (indexAutreColonne != null) {
-            T valeurAutreColonne = (T) record.getValue(indexAutreColonne); // Cast explicite vers T
+        	T valeurAutreColonne = (T) record.getValue(indexAutreColonne).getData(); // Cast explicite vers T
             Class<T> typeAutreColonne = columnTypes[indexAutreColonne];
 
             // Vérifier l'égalité des types

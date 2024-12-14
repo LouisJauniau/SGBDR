@@ -1,23 +1,12 @@
-package up.mi.jgm.td3;
-
-
+package up.mi.jgm.bdda;
 
 import java.util.List;
 
-/*
-Classe permetant de réaliser une SELECTION.
-La selection filtre les lignes d'une table tandis qu'une PROJECTION
-filtre les colonnes.
-
-On utilise la généricité car elle est utilisée dans la Classe COndition.
-
- */
-
 public class SelectOperator<T> implements IRecordIterator {
 
-    private IRecordIterator it;           // L'iteration défini par l'interface
-    private List<Condition> conditions;      // Liste de conditions à réunir
-    private Class<T>[] typeColonnes;          // Types des colonnes (nécessaire pour évaluation conditions)
+    private IRecordIterator it;
+    private List<Condition> conditions;
+    private Class<T>[] typeColonnes;
 
     public SelectOperator(IRecordIterator it, List<Condition> conditions, Class<T>[] typeColonnes) {
         this.it = it;
@@ -27,38 +16,27 @@ public class SelectOperator<T> implements IRecordIterator {
 
     @Override
     public Record getNextRecord() {
-        /*
-        retourne le record courant et avance le curseur de l’it.
-        Ou retourne null si plus de record dans ensemble des tuples.
-         */
-        Record record;
-        while ((record = it.getNextRecord()) != null) {
-            boolean conditionsRemplies = true;
+        Record rec;
+        while ((rec = it.getNextRecord()) != null) {
+            boolean ok = true;
             for (Condition cond : conditions) {
-                if (!cond.evaluate(record, typeColonnes)) {
-                    conditionsRemplies = false;
+                if (!cond.evaluate(rec, typeColonnes)) {
+                    ok = false;
                     break;
                 }
             }
-            if (conditionsRemplies) {
-                return record; // On retourne le premier record qui satisfait toutes les conditions
-            }
+            if (ok) return rec;
         }
-        return null; // Plus de record remplissant conditions
+        return null;
     }
 
-
-    // Ferme l'itérateur
     @Override
     public void close() {
-
         it.close();
     }
 
-    // Réinitialise l'itérateur
     @Override
     public void reset() {
-
         it.reset();
     }
 }

@@ -1,4 +1,6 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
+
+import java.io.IOException;
 
 public class DiskManagerTest {
     public static void main(String[] args) {

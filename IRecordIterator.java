@@ -1,4 +1,4 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
 public interface IRecordIterator {
 

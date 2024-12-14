@@ -1,11 +1,11 @@
-package up.mi.jgm.td3;
+package up.mi.jgm.bdda;
 
 import java.util.List;
 
 public class ProjectOperator implements IRecordIterator {
 
-    private IRecordIterator it;    // L'iteration défini par l'interface
-    private List<Integer> colonnes;    // Liste indices de colonnes à garder
+    private IRecordIterator it;
+    private List<Integer> colonnes;
 
     public ProjectOperator(IRecordIterator it, List<Integer> colonnes) {
         this.it = it;
@@ -14,32 +14,22 @@ public class ProjectOperator implements IRecordIterator {
 
     @Override
     public Record getNextRecord() {
-        // Récupère le prochain record
-        Record recordOriginel = it.getNextRecord();
-        if (recordOriginel == null) {
-            return null; // Plus de record
+        Record origin = it.getNextRecord();
+        if (origin == null) return null;
+        Record projected = new Record();
+        for (Integer c : colonnes) {
+            projected.addValue(origin.getValue(c));
         }
-
-        // Construit nouveau record avec uniquement les colonnes voulues
-        Record recordProjete = new Record();  //record projeté
-        for (Integer colIndex : colonnes) {
-            recordProjete.addValue(recordOriginel.getValue(colIndex));
-        }
-
-        return recordProjete;
+        return projected;
     }
 
-    // Ferme itérateur
     @Override
     public void close() {
-
         it.close();
     }
 
-    // Réinitialise itérateur
     @Override
     public void reset() {
-
         it.reset();
     }
 }
