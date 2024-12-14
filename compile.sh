@@ -1,3 +1,2 @@
 #!/bin/bash
-# Compilation des classes Java en incluant le chemin vers le JAR JSON
-javac -cp .:json-20131018.jar DBConfig.java PageId.java DiskManager.java BufferManager.java Value.java ColInfo.java Record.java RecordId.java Relation.java RelationDataTest.java
+javac -cp "/Users/louisjauniau/Downloads/json-20240303.jar" $(find /Users/louisjauniau/eclipse-workspace/BDDA/SGBDR/src/up/mi/jgm/bdda/ -name "*.java")
