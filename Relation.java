@@ -15,8 +15,8 @@ public class Relation implements Serializable {
 
     // Nouvelles variables membres
     private PageId headerPageId;
-    private DiskManager diskManager;
-    private BufferManager bufferManager;
+    private transient DiskManager diskManager;
+    private transient BufferManager bufferManager;
 
     // Constructeur modifié
     public Relation(String name, List<ColInfo> columns, DiskManager diskManager, BufferManager bufferManager) throws IOException {

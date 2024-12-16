@@ -1,15 +1,19 @@
 package up.mi.jgm.bdda;
 
-import java.io.IOException;
+import java.io.IOException;	
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.io.Serializable;
 
-public class BufferManager {
-    private DBConfig config;
-    private DiskManager diskManager;
+public class BufferManager implements Serializable {
+	private static final long serialVersionUID = 1L;
+    private transient DBConfig config;
+    private transient DiskManager diskManager;
 
     // Représentation d'un buffer (frame)
-    private class Frame {
+    private static class Frame {
         PageId pageId;
         ByteBuffer data;
         int pinCount;
@@ -25,7 +29,7 @@ public class BufferManager {
         }
     }
 
-    private Frame[] buffers;
+    private transient Frame[] buffers;
     private int bufferCount;
     private String replacementPolicy;
 
@@ -37,6 +41,22 @@ public class BufferManager {
         this.replacementPolicy = config.getReplacementPolicy();
 
         // Initialiser les buffers
+        this.buffers = new Frame[bufferCount];
+        for (int i = 0; i < bufferCount; i++) {
+            buffers[i] = new Frame(config.getPageSize());
+        }
+    }
+    
+    // Méthode personnalisée pour la sérialisation
+    private void writeObject(ObjectOutputStream oos) throws IOException {
+        oos.defaultWriteObject();
+        // Ne pas sérialiser 'buffers' car il est marqué comme transient
+    }
+
+    // Méthode personnalisée pour la désérialisation
+    private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        ois.defaultReadObject();
+        // Réinitialiser les champs transients
         this.buffers = new Frame[bufferCount];
         for (int i = 0; i < bufferCount; i++) {
             buffers[i] = new Frame(config.getPageSize());

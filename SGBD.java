@@ -177,6 +177,15 @@ public class SGBD {
                         } else if (colTypeStr.startsWith("VARCHAR(")) {
                             colType = ColInfo.Type.VARCHAR;
                             size = Integer.parseInt(colTypeStr.substring(8, colTypeStr.length() - 1));
+                        } else if (colTypeStr.startsWith("VARSTRING(")) {
+                            colType = ColInfo.Type.VARSTRING;
+                            size = Integer.parseInt(colTypeStr.substring(10, colTypeStr.length() - 1));
+                        } else if (colTypeStr.startsWith("STRING(")) {
+                            colType = ColInfo.Type.STRING;
+                            size = Integer.parseInt(colTypeStr.substring(7, colTypeStr.length() - 1));
+                        } else if (colTypeStr.startsWith("FLOAT")) { // Ajouté
+                            colType = ColInfo.Type.FLOAT;
+                            size = 0;
                         } else {
                             System.out.println("Type de colonne inconnu : " + colTypeStr);
                             return;
