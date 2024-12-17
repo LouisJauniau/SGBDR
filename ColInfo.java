@@ -11,7 +11,10 @@ public class ColInfo implements Serializable {
         INT,
         REAL,
         CHAR,
-        VARCHAR
+        VARCHAR,
+        VARSTRING,
+        STRING,
+        FLOAT
     }
 
     private Type type;
