@@ -1,2 +1,0 @@
-#!/bin/bash
-java -cp "/Users/louisjauniau/eclipse-workspace/BDDA/SGBDR/src:/Users/louisjauniau/Downloads/json-20240303.jar" up.mi.jgm.bdda.SGBD "/Users/louisjauniau/eclipse-workspace/BDDA/SGBDR/config.json"
