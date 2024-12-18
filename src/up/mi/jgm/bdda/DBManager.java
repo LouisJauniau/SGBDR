@@ -10,25 +10,27 @@ import java.util.List;
  * Classe permettant de gérer les bases de données et les tables.
  */
 public class DBManager implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L; //version de serialisation
+
 
     private DBConfig dbConfig;
-    private Map<String, Database> databases;
-    private Database currentDatabase;
+    private Map<String, Database> databases; //dictionnaire des db presentes
+    private Database currentDatabase; //db actuelle/courante
     private transient DiskManager diskManager;
     private transient BufferManager bufferManager;
 
-    // Constructeur
+    //constructeur
     public DBManager(DBConfig dbConfig, DiskManager diskManager, BufferManager bufferManager) {
         this.dbConfig = dbConfig;
         this.diskManager = diskManager;
         this.bufferManager = bufferManager;
         this.databases = new HashMap<>();
-        this.currentDatabase = null;
+        this.currentDatabase = null; //instancie sans db courante
     }
 
-    // Méthode pour créer une base de données
+    //methode pour creer une base de données
     public void createDatabase(String dbName) {
+        //si databases ne contient pas la db alors on la cree et on l'ajoute a databases
         if (!databases.containsKey(dbName)) {
             Database db = new Database(dbName);
             databases.put(dbName, db);
@@ -38,7 +40,7 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour définir la base de données courante
+    //methode pour définir la db courante
     public void setCurrentDatabase(String dbName) throws IllegalArgumentException {
         if (databases.containsKey(dbName)) {
             currentDatabase = databases.get(dbName);
@@ -48,8 +50,9 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour ajouter une table à la base de données courante
+    //methode pour ajouter une table à la base de données courante
     public void addTableToCurrentDatabase(Relation table) {
+        //sil y a une db courante
         if (currentDatabase != null) {
             currentDatabase.addTable(table);
             System.out.println("Table '" + table.getName() + "' ajoutée à la base de données '" + currentDatabase.getName() + "'.");
@@ -58,7 +61,7 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour obtenir une table de la base de données courante
+    //methode pour obtenir une table de la base de données courante
     public Relation getTableFromCurrentDatabase(String tableName) {
         if (currentDatabase != null) {
             Relation table = currentDatabase.getTable(tableName);
@@ -74,12 +77,12 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour supprimer une table de la base de données courante
+    //methode pour supprimer une table de la base de données courante
     public void removeTableFromCurrentDatabase(String tableName) throws IOException {
         if (currentDatabase != null) {
             Relation table = currentDatabase.getTable(tableName);
             if (table != null) {
-                // Désallouer les pages de la table
+                //desallouer les pages de la table
                 removeTablePages(table);
                 currentDatabase.removeTable(tableName);
                 System.out.println("Table '" + tableName + "' supprimée de la base de données '" + currentDatabase.getName() + "'.");
@@ -91,12 +94,12 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour supprimer toutes les tables de la base de données courante
+    //methode pour supprimer toutes les tables de la base de données courante
     public void removeTablesFromCurrentDatabase() throws IOException {
         if (currentDatabase != null) {
             for (String tableName : currentDatabase.getTables().keySet()) {
                 Relation table = currentDatabase.getTable(tableName);
-                // Désallouer les pages de la table
+                //desalloccation des pages de la table
                 removeTablePages(table);
             }
             currentDatabase.removeAllTables();
@@ -106,11 +109,11 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour supprimer une base de données
+    //methode pour supprimer une base de données
     public void removeDatabase(String dbName) throws IOException {
         if (databases.containsKey(dbName)) {
             Database db = databases.get(dbName);
-            // Supprimer toutes les tables et désallouer les pages
+            //suppr toutes les tables et désallouer les pages
             for (Relation table : db.getTables().values()) {
                 removeTablePages(table);
             }
@@ -124,11 +127,11 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour supprimer toutes les bases de données
+    //methode pour supprimer toutes les bases de données
     public void removeDatabases() throws IOException {
         for (String dbName : databases.keySet()) {
             Database db = databases.get(dbName);
-            // Supprimer toutes les tables et désallouer les pages
+            //supprimer toutes les tables et désallouer les pages
             for (Relation table : db.getTables().values()) {
                 removeTablePages(table);
             }
@@ -149,7 +152,7 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour lister les tables de la base de données courante
+    //methode pour lister les tables de la base de données courante
     public void listTablesInCurrentDatabase() {
         if (currentDatabase != null) {
             if (currentDatabase.getTables().isEmpty()) {
@@ -161,6 +164,7 @@ public class DBManager implements Serializable {
                     List<ColInfo> cols = table.getColumns();
                     for (int i = 0; i < cols.size(); i++) {
                         ColInfo col = cols.get(i);
+                        //ajoute au string builder pour ne pas creer de nouvel objet et obtenir un string avec toutes les tables
                         sb.append(col.getName()).append(":").append(col.getType().name());
                         if (col.getType() == ColInfo.Type.CHAR || col.getType() == ColInfo.Type.VARCHAR) {
                             sb.append("(").append(col.getSize()).append(")");
@@ -178,11 +182,13 @@ public class DBManager implements Serializable {
         }
     }
 
-    // Méthode pour sauvegarder l'état
+    //methode pour sauvegarder l'état
     public void saveState() throws IOException {
+        //recupération du chemin de la base de données à partir de la configuration
         String dbPath = dbConfig.getDbpath();
+        //creation du chemin complet vers le fichier de sauvegarde nommé "databases.save"
         String saveFilePath = Paths.get(dbPath, "databases.save").toString();
-
+                //utilisation d'un ObjectOutputStream pour sérialiser les objets et les écrire dans un fichier
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(saveFilePath))) {
             oos.writeObject(databases);
             oos.writeObject(currentDatabase != null ? currentDatabase.getName() : null);
@@ -190,14 +196,16 @@ public class DBManager implements Serializable {
         System.out.println("État des bases de données sauvegardé.");
     }
 
-    // Méthode pour charger l'état
+    //methode pour charger l'état
     public void loadState() throws IOException, ClassNotFoundException {
         String dbPath = dbConfig.getDbpath();
         String saveFilePath = Paths.get(dbPath, "databases.save").toString();
-
+        //verif que le fichier de sauvegarde existe
         File saveFile = new File(saveFilePath);
         if (saveFile.exists()) {
+            //ObjectInputStream pour désérialiser 
             try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(saveFilePath))) {
+                 //chargement des db sérialisees
                 databases = (Map<String, Database>) ois.readObject();
                 String currentDbName = (String) ois.readObject();
                 if (currentDbName != null) {
@@ -209,23 +217,24 @@ public class DBManager implements Serializable {
             // Réinitialiser les références transitoires
             for (Database db : databases.values()) {
                 for (Relation table : db.getTables().values()) {
-                    table.setDiskManager(diskManager);
-                    table.setBufferManager(bufferManager);
+                    table.setDiskManager(diskManager); //reassocie le gestionnaire de disque
+                    table.setBufferManager(bufferManager); //reassocie le gestionnaire de buffer
                 }
             }
             System.out.println("État des bases de données chargé.");
         } else {
+            //si aucun fichier sauvegarde existe, initialiser les structures de donnees
             databases = new HashMap<>();
             currentDatabase = null;
             System.out.println("Aucune sauvegarde précédente trouvée.");
         }
     }
 
-    // Méthode pour désallouer les pages d'une table
+    //methode pour désallouer les pages d'une table
     private void removeTablePages(Relation table) throws IOException {
-        // Désallouer la header page
+        //desallouer le header page
         diskManager.DeallocPage(table.getHeaderPageId());
-        // Désallouer les pages de données
+        //desallouer les pages de données
         List<PageId> dataPages = table.getDataPages();
         for (PageId pageId : dataPages) {
             diskManager.DeallocPage(pageId);
