@@ -157,7 +157,7 @@ public class DBManager implements Serializable {
             } else {
                 for (Relation table : currentDatabase.getTables().values()) {
                     StringBuilder sb = new StringBuilder();
-                    sb.append("CREATE TABLE ").append(table.getName()).append(" (");
+                    sb.append("TABLE ").append(table.getName()).append(" (");
                     List<ColInfo> cols = table.getColumns();
                     for (int i = 0; i < cols.size(); i++) {
                         ColInfo col = cols.get(i);
