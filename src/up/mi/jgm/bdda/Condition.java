@@ -82,7 +82,7 @@ public class Condition {
             case "<": return valeur1 < valeur2;
             case ">=": return valeur1 >= valeur2;
             case "<=": return valeur1 <= valeur2;
-            case "!=": return !valeur1.equals(valeur2);
+            case "<>": return !valeur1.equals(valeur2);
             default: throw new UnsupportedOperationException("Opérateur non supporté: " + operator);
         }
     }
@@ -94,7 +94,7 @@ public class Condition {
             case "<": return valeur1.compareTo(valeur2) < 0;
             case ">=": return valeur1.compareTo(valeur2) >= 0;
             case "<=": return valeur1.compareTo(valeur2) <= 0;
-            case "!=": return !valeur1.equals(valeur2);
+            case "<>": return !valeur1.equals(valeur2);
             default: throw new UnsupportedOperationException("Opérateur non supporté: " + operator);
         }
     }
