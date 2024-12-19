@@ -65,7 +65,7 @@ public class SGBD {
                 case "DROP":
                     if (parts.length > 1 && parts[1].equalsIgnoreCase("TABLE")) {
                         processDropTableCommand(command);
-                    else if (parts.length > 1 && parts[1].equalsIgnoreCase("TABLES")) {
+                    } else if (parts.length > 1 && parts[1].equalsIgnoreCase("TABLES")) {
                         processDropTablesCommand();
                     } else if (parts.length > 1 && parts[1].equalsIgnoreCase("DATABASES")) {
                         processDropDatabasesCommand();
