@@ -50,7 +50,13 @@ public class Condition {
 
             // Vérifier l'égalité des types
             if (!typeColonne.equals(typeAutreColonne)) {
-                throw new IllegalArgumentException("Types incompatibles pour la comparaison");
+                if ((typeColonne == Integer.class && typeAutreColonne == Float.class) || (typeColonne == Float.class && typeAutreColonne == Integer.class)) {
+                    Float val1 = (typeColonne == Integer.class) ? ((Integer) valeurColonne).floatValue() : (Float) valeurColonne;
+                    Float val2 = (typeAutreColonne == Integer.class) ? ((Integer) valeurAutreColonne).floatValue() : (Float) valeurAutreColonne;
+                    return compare(val1, val2, Float.class);
+                } else {
+                    throw new IllegalArgumentException("Types incompatibles pour la comparaison");
+                }
             }
 
             return compare(valeurColonne, valeurAutreColonne, typeColonne);
