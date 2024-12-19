@@ -58,6 +58,11 @@ public class Condition {
 
         // Comparaison colonne -> constante
         T constante = (T) valeurConstante; // Cast explicite vers T
+
+        if (typeColonne == Float.class && constante instanceof Integer) {
+            constante = (T) Float.valueOf(((Integer) constante).floatValue());
+        }
+        
         return compare(valeurColonne, constante, typeColonne);
     }
 
@@ -70,6 +75,8 @@ public class Condition {
         } else if (typeValeur == String.class) {
             //utilise cast explicite pour utiliser compareStrings()
             return compareStrings((String) valeur1, (String) valeur2);
+        } else if (typeValeur == Float.class) {
+            return compareFloats((Float) valeur1, (Float) valeur2);
         } else {
             throw new UnsupportedOperationException("Type non supporté: " + typeValeur);
         }
@@ -95,6 +102,19 @@ public class Condition {
             case ">=": return valeur1.compareTo(valeur2) >= 0;
             case "<=": return valeur1.compareTo(valeur2) <= 0;
             case "<>": return !valeur1.equals(valeur2);
+            default: throw new UnsupportedOperationException("Opérateur non supporté: " + operator);
+        }
+    }
+
+    private boolean compareFloats(Float valeur1, Float valeur2) {
+        switch (operator) {
+            case "=": return valeur1.equals(valeur2);
+            case ">": return valeur1 > valeur2;
+            case "<": return valeur1 < valeur2;
+            case ">=": return valeur1 >= valeur2;
+            case "<=": return valeur1 <= valeur2;
+            case "!=": return !valeur1.equals(valeur2);
+            case "<>": return !valeur1.equals(valeur2); // Gestion de "<>"
             default: throw new UnsupportedOperationException("Opérateur non supporté: " + operator);
         }
     }
