@@ -194,6 +194,7 @@ public class SelectCommandParser {
         if (condStr.contains("=")) return "=";
         if (condStr.contains("<")) return "<";
         if (condStr.contains(">")) return ">";
+        if (condStr.contains("!=")) return "!=";
         return null;
     }
 
