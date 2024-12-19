@@ -178,8 +178,8 @@ public class SelectCommandParser {
                 } else if (leftColIndex != null && constantValue != null) {
                     conditions.add(new Condition(leftColIndex, op, constantValue));
                 } else if (rightColIndex != null && constantValue != null) {
-                    // Pour simplifier, on ne gère pas les constantes à gauche
-                    throw new IllegalArgumentException("Condition invalide : constante à gauche et colonne à droite non géré.");
+                    String invertedOp = invertOperator(op);
+                    conditions.add(new Condition(rightColIndex, invertedOp, constantValue));
                 } else {
                     throw new IllegalArgumentException("Condition invalide : aucun terme colonne détecté.");
                 }
@@ -241,5 +241,24 @@ public class SelectCommandParser {
             }
         }
         return columnTypes;
+    }
+
+
+    private String invertOperator(String op) {
+        switch (op) {
+            case "=":
+            case "<>":
+                return op;
+            case "<":
+                return ">";
+            case ">":
+                return "<";
+            case "<=":
+                return ">=";
+            case ">=":
+                return "<=";
+            default:
+                throw new IllegalArgumentException("Opérateur non reconnu : " + op);
+        }
     }
 }
